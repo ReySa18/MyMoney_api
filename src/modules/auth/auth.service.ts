@@ -7,7 +7,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma';
 import { RegisterDto, LoginDto, ChangePasswordDto } from './dto';
 
@@ -180,7 +180,10 @@ export class AuthService {
     }
 
     // Verify current password
-    const isPasswordValid = await bcrypt.compare(dto.currentPassword, user.password);
+    const isPasswordValid = await bcrypt.compare(
+      dto.currentPassword,
+      user.password,
+    );
 
     if (!isPasswordValid) {
       throw new BadRequestException('Password saat ini salah');
@@ -214,10 +217,13 @@ export class AuthService {
       expiresIn: '15m',
     });
 
-    const refreshToken = uuidv4();
-    const refreshExpiration = this.configService.get<string>('JWT_REFRESH_EXPIRATION', '7d');
+    const refreshToken = randomUUID();
+    const refreshExpiration = this.configService.get<string>(
+      'JWT_REFRESH_EXPIRATION',
+      '7d',
+    );
     const expiresAt = new Date();
-    
+
     // Parse expiration (e.g., '7d' -> 7 days)
     const match = refreshExpiration.match(/^(\d+)([dhms])$/);
     if (match) {
