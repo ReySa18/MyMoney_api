@@ -1,0 +1,198 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================
+// 1. Users Table
+// ============================================
+model User {
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String   @db.VarChar(100)
+  email      String   @unique @db.VarChar(255)
+  password   String   @db.VarChar(255)
+  avatarUrl  String?  @map("avatar_url") @db.Text
+  phone      String?  @db.VarChar(30)
+  joinDate   DateTime @default(now()) @map("join_date") @db.Date
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  // Relations
+  preferences   UserPreference?
+  accounts      Account[]
+  transactions  Transaction[]
+  assets        Asset[]
+  budgets       Budget[]
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+// ============================================
+// 2. User Preferences Table
+// ============================================
+model UserPreference {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @map("user_id") @db.Uuid
+  currency  String   @default("IDR") @db.Char(3)
+  language  String   @default("id") @db.Char(2)
+  theme     String   @default("system") @db.VarChar(10)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+// ============================================
+// 3. Accounts Table
+// ============================================
+enum AccountType {
+  savings
+  ewallet
+  cash
+  investment
+  credit
+}
+
+model Account {
+  id         String      @id @default(uuid()) @db.Uuid
+  userId     String      @map("user_id") @db.Uuid
+  name       String      @db.VarChar(100)
+  type       AccountType
+  icon       String      @default("landmark") @db.VarChar(50)
+  balance    Decimal     @default(0) @db.Decimal(18, 2)
+  color      String      @default("#4f46e5") @db.Char(7)
+  isArchived Boolean     @default(false) @map("is_archived")
+  createdAt  DateTime    @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt  DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  // Relations
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@map("accounts")
+}
+
+// ============================================
+// 4. Transactions Table
+// ============================================
+enum TransactionType {
+  income
+  expense
+}
+
+model Transaction {
+  id           String          @id @default(uuid()) @db.Uuid
+  userId       String          @map("user_id") @db.Uuid
+  accountId    String          @map("account_id") @db.Uuid
+  description  String          @db.VarChar(255)
+  category     String          @db.VarChar(100)
+  categoryIcon String          @default("banknote") @map("category_icon") @db.VarChar(50)
+  amount       Decimal         @db.Decimal(18, 2)
+  type         TransactionType
+  date         DateTime        @db.Date
+  notes        String?         @db.Text
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  // Relations
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([date(sort: Desc)])
+  @@index([type])
+  @@map("transactions")
+}
+
+// ============================================
+// 5. Assets Table
+// ============================================
+model Asset {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  name       String   @db.VarChar(100)
+  type       String   @db.VarChar(50)
+  value      Decimal  @default(0) @db.Decimal(18, 2)
+  allocation Decimal  @default(0) @db.Decimal(5, 2)
+  change     Decimal  @default(0) @db.Decimal(8, 4)
+  icon       String   @default("trending-up") @db.VarChar(50)
+  color      String   @default("#4f46e5") @db.Char(7)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  // Relations
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  history AssetHistory[]
+
+  @@map("assets")
+}
+
+// ============================================
+// 6. Asset History Table
+// ============================================
+model AssetHistory {
+  id        String   @id @default(uuid()) @db.Uuid
+  assetId   String   @map("asset_id") @db.Uuid
+  date      String   @db.VarChar(7) // format: YYYY-MM
+  value     Decimal  @db.Decimal(18, 2)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  // Relations
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@unique([assetId, date])
+  @@index([assetId])
+  @@map("asset_history")
+}
+
+// ============================================
+// 7. Budgets Table
+// ============================================
+model Budget {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  category    String   @db.VarChar(100)
+  icon        String   @default("wallet") @db.VarChar(50)
+  limitAmount Decimal  @default(0) @map("limit_amount") @db.Decimal(18, 2)
+  color       String   @default("#4f46e5") @db.Char(7)
+  period      String   @db.VarChar(7) // format: YYYY-MM
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, category, period])
+  @@map("budgets")
+}
+
+// ============================================
+// 8. Refresh Tokens Table
+// ============================================
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  token     String    @unique @db.Text
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz()
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz()
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}

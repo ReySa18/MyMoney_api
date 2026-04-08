@@ -1,0 +1,28 @@
+# dependencies
+node_modules/
+
+# logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# build outputs
+dist/
+coverage/
+*.tsbuildinfo
+
+# environment files
+.env
+.env.*
+!.env.example
+
+# generated assets
+/generated/prisma
+
+# editor and OS files
+.vscode/
+.idea/
+.DS_Store
